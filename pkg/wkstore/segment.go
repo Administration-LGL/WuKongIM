@@ -72,7 +72,9 @@ func (s *segment) appendMessages(msgs []Message) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// 上次之前累计写入的数据大于阈值或这次一次性写入的数据大于阈值，将之前写入的数据尾加索引
 	if s.bytesSinceLastIndexEntry > s.indexIntervalBytes || len(firstData) > int(s.indexIntervalBytes) {
+		// 添加索引，msg[0].Seq 在segment文件位置是...
 		err = s.index.Append(msgs[0].GetSeq(), s.position-uint32(n))
 		if err != nil {
 			return 0, err
@@ -107,6 +109,7 @@ func (s *segment) readMessages(messageSeq uint32, limit uint64, callback func(ms
 	if messageSeqPosition.MessageSeq == messageSeq {
 		startPosition = messageSeqPosition.Position
 	} else {
+		// 从msgSeq.Pos 开始找到msgSeq的起始位置
 		startPosition, _, err = s.readTargetPosition(messageSeqPosition.Position, messageSeq)
 		if err != nil {
 			if errors.Is(err, ErrorNotData) {
@@ -170,6 +173,7 @@ func (s *segment) readTargetPosition(startPosition int64, targetMessageSeq uint3
 		return startPosition, nextStartPosition, nil
 	}
 
+	// 递归读取消息，直到找到消息
 	targetPosition, nextP, err := s.readTargetPosition(nextStartPosition, targetMessageSeq)
 	if err != nil {
 		return 0, 0, err
@@ -205,6 +209,7 @@ func (s *segment) init(mode SegmentMode) error {
 	if err != nil {
 		return err
 	}
+	// 记录最新一条消息的seq
 	if lastMsgStartPosition == 0 {
 		if s.position > 0 { // // lastMsgStartPosition等0 position大于0 说明有一条消息
 			s.lastMsgSeq.Store(uint32(s.baseMessageSeq + 1))
@@ -261,12 +266,14 @@ func (s *segment) sanityCheck() (int64, error) {
 		s.Debug("No magic number at the end,sanity check mode is full")
 		return s.sanityFullCheck(segmentSizeOfByte)
 	}
+	// 如果segmentSize 太小
 	if segmentSizeOfByte <= int64(s.cfg.EachMessagegMaxSizeOfBytes)+int64(getMinMessageLen()) {
 		s.Debug("File is too small,sanity check mode is full")
 		return s.sanityFullCheck(segmentSizeOfByte)
 	}
 
 	s.Debug("sanity check mode is simple")
+
 	check, lastMsgStartPosition, err := s.sanitySimpleCheck(segmentSizeOfByte)
 	if err != nil {
 		s.Warn("sanitySimpleCheck is error，start sanityFullCheck", zap.Error(err))
@@ -280,6 +287,7 @@ func (s *segment) sanityCheck() (int64, error) {
 }
 
 // 返回最后一条日志的开始位置
+// 从最新索引指向的位置，开始检查，直到找到最后一条消息的消息头位置
 func (s *segment) sanitySimpleCheck(segmentSizeOfByte int64) (bool, int64, error) {
 
 	assertDataSize := int64(s.cfg.EachMessagegMaxSizeOfBytes + getMinMessageLen()) // assert last message size
@@ -288,6 +296,7 @@ func (s *segment) sanitySimpleCheck(segmentSizeOfByte int64) (bool, int64, error
 		return false, 0, nil
 	}
 
+	// 获取索引最后的位置
 	offsetPosistion := s.index.LastPosition()
 
 	if offsetPosistion.Position <= 0 && offsetPosistion.MessageSeq <= 0 {
@@ -325,14 +334,17 @@ func (s *segment) sanitySimpleCheck(segmentSizeOfByte int64) (bool, int64, error
 	}
 	s.position = uint32(startCheckPosition)
 
+	// 返回最后一条消息的消息头位置
 	return true, startCheckPosition - int64(lastMsgLen), nil
 }
 
+// 从文件头部开始检查
 func (s *segment) sanityFullCheck(segmentSizeOfByte int64) (int64, error) {
 
 	return s.check(segmentSizeOfByte)
 }
 
+// 检查文件末尾是否有 结尾符
 func (s *segment) hasEndMagicNumer(segmentSizeOfByte int64) (bool, error) {
 	var p = make([]byte, 1)
 	_, err := s.segmentFile.ReadAt(p, segmentSizeOfByte-1)
@@ -344,6 +356,7 @@ func (s *segment) hasEndMagicNumer(segmentSizeOfByte int64) (bool, error) {
 
 // 检查消息文件的有效性。
 // keepCorrect 是否保持消息文件的有效果性，如果为true 将删除掉无效的消息字节
+// 从文件头部开始检查，若有错误数据，则会切除错误数据
 func (s *segment) check(segmentSizeOfByte int64) (int64, error) {
 	// _, err := s.logFile.Seek(startPosition, io.SeekStart)
 	// if err != nil {

@@ -19,6 +19,10 @@ package socket
 
 import "golang.org/x/sys/unix"
 
+// 返回文件描述符
+// family参数决定是使用ipv4/ipv6
+// sotype 如TCP就是字节流，则sotype传入的值为 syscall.SOCK_STREAM
+// proto  TCP
 func sysSocket(family, sotype, proto int) (int, error) {
 	return unix.Socket(family, sotype|unix.SOCK_NONBLOCK|unix.SOCK_CLOEXEC, proto)
 }

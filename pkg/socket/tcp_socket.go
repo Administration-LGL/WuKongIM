@@ -92,7 +92,7 @@ func tcpSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 	if sa, family, netAddr, ipv6only, err = GetTCPSockAddr(proto, addr); err != nil {
 		return
 	}
-
+	// 参数
 	if fd, err = sysSocket(family, syscall.SOCK_STREAM, syscall.IPPROTO_TCP); err != nil {
 		err = os.NewSyscallError("socket", err)
 		return

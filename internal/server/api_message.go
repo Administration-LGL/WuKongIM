@@ -263,6 +263,7 @@ func (m *MessageAPI) sendMessageToChannel(req MessageSendReq, channelID string, 
 		Subscribers:    subscribers,
 	}
 	messages := []wkstore.Message{msg}
+	// 持久化 && 非只消费一次 && 不是临时频道
 	if !msg.NoPersist && !msg.SyncOnce && !m.s.opts.IsTmpChannel(channelID) {
 
 		if msg.StreamIng() {
@@ -285,6 +286,7 @@ func (m *MessageAPI) sendMessageToChannel(req MessageSendReq, channelID string, 
 
 	}
 	if m.s.opts.WebhookOn() {
+		// 如果流不是在进行中
 		if !msg.StreamIng() {
 			// Add a message to the notification queue, the data in this queue will be notified to third-party applications
 			err = m.s.store.AppendMessageOfNotifyQueue(messages)

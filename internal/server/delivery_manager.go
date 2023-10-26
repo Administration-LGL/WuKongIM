@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// 负责投递?
 type DeliveryManager struct {
 	s               *Server
 	deliveryMsgPool *ants.Pool
@@ -49,7 +50,8 @@ func (d *DeliveryManager) deliveryMessages(messages []*Message, large bool, sync
 	for _, subscriber := range subscribers {
 		recvConns := d.getRecvConns(subscriber, fromUID, fromDeivceFlag, fromDeviceID)
 		if len(recvConns) == 0 {
-			if subscriber != fromUID { //自己发给自己的消息不触发离线事件
+			if subscriber != fromUID { // 自己发给自己的消息不触发离线事件
+				// 离线，但需要发送的用户
 				offlineSubscribers = append(offlineSubscribers, subscriber)
 			}
 			continue
@@ -157,6 +159,7 @@ func (d *DeliveryManager) retryDeliveryMsg(msg *Message) {
 }
 
 // get recv
+// 获取订阅者的连接，并排除当前from连接，比如订阅者三端在线，现在from是app端，则得去掉app连接
 func (d *DeliveryManager) getRecvConns(subscriber string, fromUID string, fromDeivceFlag wkproto.DeviceFlag, fromDeviceID string) []wknet.Conn {
 	toConns := d.s.connManager.GetConnsWithUID(subscriber)
 	d.Debug("GetConnsWithUID", zap.String("subscriber", subscriber), zap.Int("conns", len(toConns)))

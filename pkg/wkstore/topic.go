@@ -87,6 +87,7 @@ func (t *topic) appendMessages(msgs []Message) ([]uint32, int, error) {
 	t.lastMsgSeq.Store(lastMsg.GetSeq())
 
 	//	if  roll new segment
+	// 如果索引超了或者segment超了
 	if lastSegment.index.IsFull() || int64(lastSegment.position) > t.cfg.SegmentMaxBytes {
 		t.roll(msgs[len(msgs)-1]) // roll new segment
 	}
@@ -203,6 +204,7 @@ func (t *topic) readMessages(messageSeq uint32, limit uint64, callback func(msg 
 		return err
 	}
 	nextBaseMessageSeq := baseMessageSeq
+	// 如果在一个segment没有读取到所有的数据，则下一个segment读取，直到读取limit的数据或没有数据了
 	for readCount < int(limit) {
 		nextBaseMessageSeqInt64 := t.nextBaseMessageSeq(nextBaseMessageSeq)
 		nextBaseMessageSeq = uint32(nextBaseMessageSeqInt64)
@@ -310,6 +312,7 @@ func (t *topic) initSegments() {
 	}
 	t.lastBaseMessageSeq = t.segments[len(t.segments)-1]
 
+	// 设置最后一个segment的 msgSeq 为 lastSeq
 	t.resetActiveSegment(t.lastBaseMessageSeq)
 }
 
@@ -325,6 +328,7 @@ func (t *topic) getSegmentCacheKey(baseMessageSeq uint32) string {
 }
 
 // get all segment base messageSeq
+// 文件名包含了segment 的baseMsgSeq
 func (t *topic) getAllSegmentBaseMessageSeq() []uint32 {
 	files, err := ioutil.ReadDir(t.topicDir)
 	if err != nil {

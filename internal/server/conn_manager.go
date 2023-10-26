@@ -8,8 +8,10 @@ import (
 )
 
 type ConnManager struct {
+	// user uid作为key，存储的是连接的唯一id
 	userConnMap map[string][]int64
-	connMap     map[int64]int
+	// key是连接的id，val存储的是连接对应的文件描述符
+	connMap map[int64]int
 
 	sync.RWMutex
 	s *Server

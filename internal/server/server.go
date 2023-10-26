@@ -60,6 +60,7 @@ func New(opts *Options) *Server {
 		opts:             opts,
 		Log:              wklog.NewWKLog("Server"),
 		waitGroupWrapper: wkutil.NewWaitGroupWrapper("Server"),
+		// 精确定时任务
 		timingWheel:      timingwheel.NewTimingWheel(opts.TimingWheelTick, opts.TimingWheelSize),
 		start:            now,
 		stopChan:         make(chan struct{}),

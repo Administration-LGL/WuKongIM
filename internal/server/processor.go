@@ -129,6 +129,7 @@ func (p *Processor) processAuth(conn wknet.Conn, connectPacket *wkproto.ConnectP
 		devceLevel = wkproto.DeviceLevelSlave // 默认都是slave设备
 	}
 
+	// 通过用户个人频道，判断用户是否被禁
 	// -------------------- ban  --------------------
 	userChannelInfo, err := p.s.store.GetChannel(uid, wkproto.ChannelTypePerson)
 	if err != nil {
@@ -147,7 +148,7 @@ func (p *Processor) processAuth(conn wknet.Conn, connectPacket *wkproto.ConnectP
 	}
 
 	// -------------------- get message encrypt key --------------------
-	dhServerPrivKey, dhServerPublicKey := wkutil.GetCurve25519KeypPair() // 生成服务器的DH密钥对
+	dhServerPrivKey, dhServerPublicKey := wkutil.GetCurve25519KeypPair() // 生成服务器的DH密钥对 DiffHelm
 	aesKey, aesIV, err := p.getClientAesKeyAndIV(connectPacket.ClientKey, dhServerPrivKey)
 	if err != nil {
 		p.Error("get client aes key and iv err", zap.Error(err))
@@ -157,20 +158,26 @@ func (p *Processor) processAuth(conn wknet.Conn, connectPacket *wkproto.ConnectP
 	dhServerPublicKeyEnc := base64.StdEncoding.EncodeToString(dhServerPublicKey[:])
 
 	// -------------------- same master kicks each other --------------------
+	// 获取相同flag的设备连接，如app、web、pc
 	oldConns := p.s.connManager.GetConnsWith(uid, connectPacket.DeviceFlag)
 	if len(oldConns) > 0 && devceLevel == wkproto.DeviceLevelMaster {
 		for _, oldConn := range oldConns {
 			p.s.connManager.RemoveConnWithID(oldConn.ID())
+			// 如果旧的连接的设备id和信的连接的设备id不相同
+			// 则发送断开消息，并定时断开
 			if oldConn.DeviceID() != connectPacket.DeviceID {
 				p.Info("same master kicks each other", zap.String("devceLevel", devceLevel.String()), zap.String("uid", uid), zap.String("deviceID", connectPacket.DeviceID), zap.String("oldDeviceID", oldConn.DeviceID()))
+				// 发送连接断开消息
 				p.response(oldConn, &wkproto.DisconnectPacket{
 					ReasonCode: wkproto.ReasonConnectKick,
 					Reason:     "login in other device",
 				})
+				// 10秒后断开连接
 				p.s.timingWheel.AfterFunc(time.Second*10, func() {
 					oldConn.Close()
 				})
 			} else {
+				// 如果旧连接是相同的设备，则4秒后断开旧连接
 				p.s.timingWheel.AfterFunc(time.Second*4, func() {
 					oldConn.Close() // Close old connection
 				})
@@ -180,6 +187,7 @@ func (p *Processor) processAuth(conn wknet.Conn, connectPacket *wkproto.ConnectP
 	}
 
 	// -------------------- set conn info --------------------
+	// 防止重放攻击
 	timeDiff := time.Now().UnixNano()/1000/1000 - connectPacket.ClientTimestamp
 
 	// connCtx := p.connContextPool.Get().(*connContext)
@@ -202,6 +210,7 @@ func (p *Processor) processAuth(conn wknet.Conn, connectPacket *wkproto.ConnectP
 	// -------------------- response connack --------------------
 
 	p.s.Debug("Auth Success", zap.Any("conn", conn))
+	// 返回服务端公钥以及salt
 	p.response(conn, &wkproto.ConnackPacket{
 		Salt:       aesIV,
 		ServerKey:  dhServerPublicKeyEnc,
@@ -211,6 +220,7 @@ func (p *Processor) processAuth(conn wknet.Conn, connectPacket *wkproto.ConnectP
 
 	// -------------------- user online --------------------
 	// 在线webhook
+	// 用户在线设备情况，以及指定设备在线情况
 	onlineCount, totalOnlineCount := p.s.connManager.GetConnCountWith(uid, connectPacket.DeviceFlag)
 	p.s.webhook.Online(uid, connectPacket.DeviceFlag, conn.ID(), onlineCount, totalOnlineCount)
 
@@ -350,6 +360,7 @@ func (p *Processor) prcocessChannelMessages(conn wknet.Conn, channelID string, c
 	if len(messages) == 0 {
 		return sendackPackets, nil
 	}
+	// TODO 持久化代码太复杂
 	err = p.storeChannelMessagesIfNeed(conn.UID(), messages) // only have messageSeq after message save
 	if err != nil {
 		return respSendackPacketsWithRecvFnc(messages, wkproto.ReasonSystemError), err
@@ -666,10 +677,10 @@ func (p *Processor) getClientAesKeyAndIV(clientKey string, dhServerPrivKey [32]b
 	var dhClientPubKeyArray [32]byte
 	copy(dhClientPubKeyArray[:], clientKeyBytes[:32])
 
-	// 获得DH的共享key
 	shareKey := wkutil.GetCurve25519Key(dhServerPrivKey, dhClientPubKeyArray) // 共享key
 
 	aesIV := wkutil.GetRandomString(16)
+	// 计算的共享密钥相同，只取其中一部分
 	aesKey := wkutil.MD5(base64.StdEncoding.EncodeToString(shareKey[:]))[:16]
 	return aesKey, aesIV, nil
 }

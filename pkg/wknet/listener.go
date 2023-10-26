@@ -45,16 +45,19 @@ func (l *listener) init() error {
 }
 
 func (l *listener) initTCPListener(network, addr string) error {
+	// 设置文件描述符无延迟和重用
 	var sockOpts = []socket.Option{
 		{SetSockOpt: socket.SetNoDelay, Opt: 1},
 		{SetSockOpt: socket.SetReuseAddr, Opt: 1}, // 监听端口重用
 	}
 	opts := l.opts
 
+	// 设置接收缓冲区
 	if opts.SocketRecvBuffer > 0 {
 		sockOpt := socket.Option{SetSockOpt: socket.SetRecvBuffer, Opt: opts.SocketRecvBuffer}
 		sockOpts = append(sockOpts, sockOpt)
 	}
+	// 设置发送缓冲区
 	if opts.SocketSendBuffer > 0 {
 		sockOpt := socket.Option{SetSockOpt: socket.SetSendBuffer, Opt: opts.SocketSendBuffer}
 		sockOpts = append(sockOpts, sockOpt)

@@ -10,6 +10,7 @@ import (
 )
 
 type Engine struct {
+	// 文件描述符的值，对应Conn
 	connsUnix       []Conn                   // 在线连接
 	connsUnixLock   sync.RWMutex             // 在线连接锁
 	options         *Options                 // 配置
@@ -20,6 +21,10 @@ type Engine struct {
 	clientIDGen     atomic.Int64             // 客户端ID生成器
 }
 
+// 设置了最大连接数的 []conn
+// 事件钩子
+// timingwheel
+// reactor模式主从初始化
 func NewEngine(opts ...Option) *Engine {
 	var (
 		eg      *Engine
@@ -32,6 +37,7 @@ func NewEngine(opts ...Option) *Engine {
 	}
 
 	eg = &Engine{
+		//
 		connsUnix:    make([]Conn, options.MaxOpenFiles),
 		options:      options,
 		eventHandler: NewEventHandler(),
@@ -147,6 +153,7 @@ func (e *Engine) GenClientID() int64 {
 
 	cid := e.clientIDGen.Load()
 
+	//
 	if cid >= 1<<32-1 { // 如果超过或等于 int32最大值 这客户端ID从新从0开始生成，int32有几十亿大 如果从1开始生成再回到1 原来属于1的客户端应该早就销毁了。
 		e.clientIDGen.Store(0)
 	}

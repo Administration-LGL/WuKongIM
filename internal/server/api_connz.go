@@ -31,6 +31,7 @@ func (co *ConnzAPI) Route(r *wkhttp.WKHttp) {
 	r.GET("/connz", co.HandleConnz)
 }
 
+// 获取连接信息 全部/部分
 func (co *ConnzAPI) HandleConnz(c *wkhttp.Context) {
 	conns := co.s.dispatch.engine.GetAllConn()
 	sortStr := c.Query("sort")
@@ -50,6 +51,7 @@ func (co *ConnzAPI) HandleConnz(c *wkhttp.Context) {
 		sortOpt = SortOpt(sortStr)
 	}
 	var connInfos []*ConnInfo
+	// 想只查uid的连接
 	if strings.TrimSpace(uid) != "" {
 		connInfos = make([]*ConnInfo, 0, 4)
 		if len(conns) > 0 {
@@ -78,6 +80,8 @@ func (co *ConnzAPI) HandleConnz(c *wkhttp.Context) {
 	})
 }
 
+// 将所有conn排序后，再截取
+// TODO: 只排序需要的部分
 func (s *Server) GetConnInfos(sortOpt SortOpt, offset, limit int) []wknet.Conn {
 	conns := s.dispatch.engine.GetAllConn()
 	switch sortOpt {

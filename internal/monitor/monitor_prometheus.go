@@ -252,7 +252,7 @@ func NewPrometheus() IMonitor {
 	prometheus.MustRegister(topicCacheGauge)
 	prometheus.MustRegister(segmentCacheGauge)
 	prometheus.MustRegister(conversationCacheCountGauge)
-
+	
 	sample := 60
 
 	return &Prometheus{
@@ -294,6 +294,7 @@ func NewPrometheus() IMonitor {
 	}
 }
 
+// 每秒向Prometheus发送数据
 func (p *Prometheus) Start() {
 	go func() {
 		ticker := time.NewTicker(time.Second)

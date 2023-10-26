@@ -35,6 +35,7 @@ type ConversationManager struct {
 
 // NewConversationManager NewConversationManager
 func NewConversationManager(s *Server) *ConversationManager {
+	// 存储channel的最新消息号，计算未读数，并存储在bolt
 	cm := &ConversationManager{
 		s:                       s,
 		bucketNum:               10,
@@ -46,9 +47,11 @@ func NewConversationManager(s *Server) *ConversationManager {
 		needSaveChan:            make(chan string),
 		queue:                   NewQueue(),
 	}
+	// cm.bucketNum个map，map存储的是 uid --> conversations
 	cm.userConversationMapBuckets = make([]map[string]*lru.Cache[string, *wkstore.Conversation], cm.bucketNum)
 	cm.userConversationMapBucketLocks = make([]sync.RWMutex, cm.bucketNum)
 
+	// 每分钟计算
 	s.Schedule(time.Minute, func() {
 		totalConversation := 0
 		for i := 0; i < cm.bucketNum; i++ {
@@ -104,6 +107,7 @@ func (cm *ConversationManager) clearExpireConversations() {
 			for _, key := range keys {
 				conversation, _ := cache.Get(key)
 				if conversation != nil {
+					//
 					if conversation.Timestamp+int64(cm.s.opts.Conversation.CacheExpire.Seconds()) < time.Now().Unix() {
 						cache.Remove(key)
 					}
@@ -120,6 +124,7 @@ func (cm *ConversationManager) clearExpireConversations() {
 // 保存最近会话
 func (cm *ConversationManager) calcLoop() {
 	for {
+		// 持续等待
 		messageMapObj := cm.queue.Pop()
 		if messageMapObj == nil {
 			continue
@@ -128,6 +133,7 @@ func (cm *ConversationManager) calcLoop() {
 		message := messageMap["message"].(*Message)
 		subscribers := messageMap["subscribers"].([]string)
 
+		// 计算需要保存的会话
 		for _, subscriber := range subscribers {
 			cm.calConversation(message, subscriber)
 		}
@@ -407,6 +413,7 @@ func (cm *ConversationManager) calConversation(message *Message, subscriber stri
 			conversation.UnreadCount++
 			modify = true
 		}
+		// 会话中有更新的消息
 		if conversation.LastMsgSeq < message.MessageSeq { // 只有当前会话的messageSeq小于当前消息的messageSeq才更新
 			conversation.Timestamp = int64(message.Timestamp)
 			conversation.LastClientMsgNo = message.ClientMsgNo

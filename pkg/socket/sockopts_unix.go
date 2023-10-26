@@ -31,11 +31,14 @@ func SetKeepAlivePeriod(fd, secs int) error {
 	if secs <= 0 {
 		return errors.New("invalid time duration")
 	}
+	// 启用tcp保活
 	if err := os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_KEEPALIVE, 1)); err != nil {
 		return err
 	}
+	// 设置保活间隔
 	if err := os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_KEEPINTVL, secs)); err != nil {
 		return err
 	}
+	// 设置限制多少时间后，开始发送保活
 	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_KEEPIDLE, secs))
 }

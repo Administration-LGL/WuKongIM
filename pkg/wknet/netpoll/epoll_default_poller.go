@@ -40,7 +40,7 @@ func NewPoller(name string) *Poller {
 		panic(err)
 	}
 	poller.Log = wklog.NewWKLog("epollPoller")
-
+	
 	err = poller.AddRead(poller.efd)
 	if err != nil {
 		panic(err)

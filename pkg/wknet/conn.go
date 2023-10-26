@@ -137,7 +137,7 @@ type DefaultConn struct {
 	authed         bool // if the connection is authed
 	protoVersion   int
 	id             int64
-	uid            string
+	uid            string  // userid
 	deviceFlag     uint8
 	deviceLevel    uint8
 	deviceID       string
@@ -198,6 +198,7 @@ func CreateConn(id int64, connFd NetFd, localAddr, remoteAddr net.Addr, eg *Engi
 	defaultConn := GetDefaultConn(id, connFd, localAddr, remoteAddr, eg, reactorSub)
 	if eg.options.TCPTLSConfig != nil {
 		tc := newTLSConn(defaultConn)
+		// 创建TLS服务器，为未来提供TLS握手
 		tlsCn := tls.Server(tc, eg.options.TCPTLSConfig)
 		tc.tlsconn = tlsCn
 		return tc, nil
@@ -214,15 +215,19 @@ func (d *DefaultConn) SetID(id int64) {
 }
 
 func (d *DefaultConn) ReadToInboundBuffer() (int, error) {
+	// 先读到sub的缓冲区
 	readBuffer := d.reactorSub.ReadBuffer
 	n, err := d.fd.Read(readBuffer)
 	if err != nil || n == 0 {
 		return 0, err
 	}
+	// 判断连接的缓冲区中的数据 + 新来的数据 是否溢出
 	if d.overflowForInbound(n) {
 		return 0, fmt.Errorf("inbound buffer overflow, fd: %d currentSize: %d maxSize: %d", d.fd, d.inboundBuffer.BoundBufferSize()+n, d.eg.options.MaxReadBufferSize)
 	}
+	// 更新last time
 	d.KeepLastActivity()
+	// 写入数据到 连接的环形缓冲区
 	_, err = d.inboundBuffer.Write(readBuffer[:n])
 	return n, err
 }

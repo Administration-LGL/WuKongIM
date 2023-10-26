@@ -166,6 +166,8 @@ func decodeMessageSeq(reader io.ReaderAt, position int64) (messageSeq uint32, da
 	messageSeq = uint32(Encoding.Uint64(messageSeqByte)) // 实际编码中messageSeq是uint64的
 	return
 }
+
+// 向下取整
 func roundDown(total, factor int64) int64 {
 	return factor * (total / factor)
 }

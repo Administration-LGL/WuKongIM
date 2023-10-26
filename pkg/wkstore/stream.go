@@ -108,13 +108,16 @@ func (m *Stream) readMaxStreamSeqNoLock() (uint32, error) {
 	if fileSize == 0 {
 		return 0, nil
 	}
+	// 获取最后一个steam的streamNo
 	for {
 		item, len, err := currentStreamBaseInfo(m.getStreamIO(), startOffset)
 		if err != nil {
 			return 0, err
 		}
+
 		maxStreamSeq = item.StreamSeq
 		startOffset += int64(len)
+		// 到了文件末尾
 		if startOffset >= fileSize {
 			break
 		}

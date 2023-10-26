@@ -21,8 +21,10 @@ var (
 
 // Entry Entry
 type Entry struct {
+	// 相对消息序号起点的偏移量
 	RelativeOffset uint32
-	Position       uint32
+	// 文件可写位置
+	Position uint32
 }
 
 // Index Index
@@ -51,6 +53,7 @@ func NewIndex(path string, baseMessageSeq uint32) *Index {
 	}
 
 	idx.maxEntryNum = idx.maxBytes / int64(idx.entrySize)
+	// 热点存储大小
 	idx.warmEntries = 8192 / int64(idx.entrySize)
 	var err error
 	idx.file, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
@@ -68,10 +71,12 @@ func NewIndex(path string, baseMessageSeq uint32) *Index {
 	}
 
 	fileMaxSize := roundDown(idx.maxBytes, int64(idx.entrySize))
+	// 截断文件大小
 	if err := idx.file.Truncate(fileMaxSize); err != nil {
 		idx.Error("Truncate file failed", zap.Error(err))
 		panic(err)
 	}
+	// 内核-用户 映射
 	idx.mmap, err = gommap.Map(idx.file.Fd(), gommap.PROT_READ|gommap.PROT_WRITE, gommap.MAP_SHARED)
 	if err != nil {
 		panic(err)
@@ -99,16 +104,19 @@ func (idx *Index) resetPosistion() error {
 		if err := idx.readEntryAtPosition(entry, position); err != nil {
 			return err
 		}
+		// 读取到的相对偏移量等于0
 		if entry.RelativeOffset == 0 {
 			break
 		}
 		position += int64(idx.entrySize)
 	}
+	// 索引最新可写的位置
 	idx.position = position
 	return nil
 }
 
 // Append Append
+// 记录消息序号与在文件中的位置
 func (idx *Index) Append(offset uint32, position uint32) error {
 
 	b := new(bytes.Buffer)
@@ -264,6 +272,7 @@ func (idx *Index) readAtPosition(p []byte, position int64) (n int, err error) {
 // }
 
 func (idx *Index) indexSlotRangeFor(target uint32) (int64, int64) {
+	// 有几个索引
 	entries := idx.position / int64(idx.entrySize)
 	if entries == 0 {
 		return -1, -1
@@ -289,6 +298,7 @@ func (idx *Index) indexSlotRangeFor(target uint32) (int64, int64) {
 		}
 		return lo, lo + 1
 	}
+	// 
 	var firstHotEntry = int64(math.Max(0, float64(entries-1-idx.warmEntries)))
 	if idx.compareIndexEntry(idx.parseEntry(firstHotEntry), target) < 0 {
 		return binarySearch(firstHotEntry, entries-1)
@@ -301,7 +311,7 @@ func (idx *Index) indexSlotRangeFor(target uint32) (int64, int64) {
 }
 
 func (idx *Index) compareIndexEntry(indexEntry MessageSeqPosition, target uint32) int {
-
+	// 往前
 	if indexEntry.MessageSeq > target {
 		return 1
 	} else if indexEntry.MessageSeq < target {
@@ -314,11 +324,13 @@ func (idx *Index) parseEntry(mid int64) MessageSeqPosition {
 	p := make([]byte, idx.entrySize)
 	position := mid * int64(idx.entrySize)
 	copyEnd := position + int64(idx.entrySize)
+	// copyEnd如果越界了
 	if copyEnd > int64(len(idx.mmap)) {
 		return MessageSeqPosition{
 			MessageSeq: idx.baseMessageSeq,
 		}
 	}
+	// 复制到p
 	copy(p, idx.mmap[position:copyEnd])
 	b := bytes.NewReader(p)
 	var entry = &Entry{}

@@ -205,6 +205,7 @@ func (a *Acceptor) acceptConn(listenFd int, ws bool, wss bool) error {
 		conn Conn
 		err  error
 	)
+	// 执行accept
 	connFd, sa, err := unix.Accept(listenFd)
 	if err != nil {
 		if err == unix.EAGAIN {
@@ -221,6 +222,7 @@ func (a *Acceptor) acceptConn(listenFd int, ws bool, wss bool) error {
 		err = socket.SetKeepAlivePeriod(connFd, int(a.eg.options.TCPKeepAlive.Seconds()))
 		a.Error("SetKeepAlivePeriod() failed", zap.Error(err))
 	}
+	// 根据文件描述符选择一个sub
 	subReactor := a.reactorSubByConnFd(connFd)
 	if wss {
 		if conn, err = a.eg.eventHandler.OnNewWSSConn(a.eg.GenClientID(), newNetFd(connFd), a.wssRealAddr(), remoteAddr, a.eg, subReactor); err != nil {

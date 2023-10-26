@@ -299,6 +299,7 @@ func (f *FileStore) AddSystemUIDs(uids []string) error {
 		bucket := f.getRootBucket(t)
 		value := bucket.Get([]byte(f.systemUIDsKey))
 		list := make([]string, 0)
+		// 将新增的系统uid与原有的系统uid合并
 		if len(value) > 0 {
 			values := strings.Split(string(value), ",")
 			if len(values) > 0 {

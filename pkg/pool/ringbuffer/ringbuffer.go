@@ -86,19 +86,24 @@ func Put(b *RingBuffer) { builtinPool.Put(b) }
 //
 // The buffer mustn't be accessed after returning to the pool.
 func (p *Pool) Put(b *RingBuffer) {
+
 	idx := index(b.Len())
 
+	// 当某个容量调用次数达到阈值时，更新pool默认创建的ringbuffer的默认容量和最大容量
 	if atomic.AddUint64(&p.calls[idx], 1) > calibrateCallsThreshold {
 		p.calibrate()
 	}
 
 	maxSize := int(atomic.LoadUint64(&p.maxSize))
+	// 没有最大限制或容量大于最大的，就让gc回收，不放回池子
 	if maxSize == 0 || b.Cap() <= maxSize {
 		b.Reset()
 		p.pool.Put(b)
 	}
 }
 
+// 将调用次数最多的容量大小设置为默认值
+// 更新maxsize，覆盖95%调用情况下的maxsize
 func (p *Pool) calibrate() {
 	if !atomic.CompareAndSwapUint64(&p.calibrating, 0, 1) {
 		return
@@ -119,8 +124,11 @@ func (p *Pool) calibrate() {
 	defaultSize := a[0].size
 	maxSize := defaultSize
 
+	// 调用次数总和的 0.95
 	maxSum := uint64(float64(callsSum) * maxPercentile)
 	callsSum = 0
+
+	// 计算大部分调用中的最大值，用于排除极端大小的情况
 	for i := 0; i < steps; i++ {
 		if callsSum > maxSum {
 			break
@@ -131,10 +139,12 @@ func (p *Pool) calibrate() {
 			maxSize = size
 		}
 	}
-
+	// 将调用容量次数最多的作为默认容量
 	atomic.StoreUint64(&p.defaultSize, defaultSize)
+
 	atomic.StoreUint64(&p.maxSize, maxSize)
 
+	// 处理结束
 	atomic.StoreUint64(&p.calibrating, 0)
 }
 
@@ -157,13 +167,16 @@ func (ci callSizes) Swap(i, j int) {
 	ci[i], ci[j] = ci[j], ci[i]
 }
 
+// 查看当前ringbuffer用了多少个64的大小
 func index(n int) int {
 	n--
+	// 计算占用多少个cpu缓存行大小
 	n >>= minBitSize
 	idx := 0
 	if n > 0 {
 		idx = bits.Len(uint(n))
 	}
+	// 最大就 64<<20 的大小，超出后以20计
 	if idx >= steps {
 		idx = steps - 1
 	}
