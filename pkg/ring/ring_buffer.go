@@ -247,7 +247,9 @@ func (rb *Buffer) Write(p []byte) (n int, err error) {
 	}
 
 	free := rb.Available()
+	// 新增大于可用
 	if n > free {
+		// rb.size+n-free 写入p后共占用内存
 		rb.grow(rb.size + n - free)
 	}
 
@@ -510,6 +512,7 @@ func (rb *Buffer) Reset() {
 	rb.r, rb.w = 0, 0
 }
 
+
 func (rb *Buffer) grow(newCap int) {
 	if n := rb.size; n == 0 {
 		if newCap <= DefaultBufferSize {
@@ -518,12 +521,18 @@ func (rb *Buffer) grow(newCap int) {
 			newCap = CeilToPowerOfTwo(newCap)
 		}
 	} else {
+		// doubleCap是当前size的两倍
 		doubleCap := n + n
+		// 如果写入后需要的新总内存<=doubleCap
 		if newCap <= doubleCap {
+			// 如果n抵御门槛值，则等于自身的两倍
 			if n < bufferGrowThreshold {
 				newCap = doubleCap
 			} else {
 				// Check 0 < n to detect overflow and prevent an infinite loop.
+				// n=8,newCap=12
+				// 10
+				// 12
 				for 0 < n && n < newCap {
 					n += n / 4
 				}

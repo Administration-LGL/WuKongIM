@@ -87,6 +87,9 @@ func (t *topic) appendMessages(msgs []Message) ([]uint32, int, error) {
 	t.lastMsgSeq.Store(lastMsg.GetSeq())
 
 	//	if  roll new segment
+	// 索引满或者内容满，从 缓存删除满的segment，以本次最后一条消息的seq作为前缀，创建新的存储文件。
+	// 且本次的消息还是存储在本次segment，新的segment存储的是>本次消息最大seq的消息。下次存储新消息
+	// 时，就是本次最大seq+1
 	if lastSegment.index.IsFull() || int64(lastSegment.position) > t.cfg.SegmentMaxBytes {
 		t.roll(msgs[len(msgs)-1]) // roll new segment
 	}
@@ -241,6 +244,7 @@ func (t *topic) readMessageAt(messageSeq uint32) (Message, error) {
 
 func (t *topic) roll(m Message) {
 	lastSegment := t.getActiveSegment()
+	// 从缓存删除已经满了的segment
 	if lastSegment != nil {
 		segmentCache.Remove(t.getSegmentCacheKey(t.lastBaseMessageSeq))
 	}
@@ -356,7 +360,7 @@ func (t *topic) sortSegmentBaseMessageSeqs(baseMessageSeqs []uint32) []uint32 {
 	return baseMessageSeqs
 }
 
-func (t *topic) nextMsgSeq() uint32 {
+func (t *topic)  nextMsgSeq() uint32 {
 	return t.lastMsgSeq.Inc()
 }
 

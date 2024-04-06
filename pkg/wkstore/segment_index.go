@@ -36,12 +36,12 @@ type Index struct {
 	wklog.Log
 	maxBytes         int64
 	maxEntryNum      int64
-	warmEntries      int64 // 热点日志条
+	warmEntries      int64 // 热点日志条 1024
 	totalContentSize int64 // 文件的内容大小
 }
 
 // NewIndex NewIndex
-func NewIndex(path string, baseMessageSeq uint32) *Index {
+func  NewIndex(path string, baseMessageSeq uint32) *Index {
 
 	idx := &Index{
 		entrySize:      binary.Size(Entry{}),
@@ -67,6 +67,8 @@ func NewIndex(path string, baseMessageSeq uint32) *Index {
 		idx.position = fi.Size()
 	}
 
+	// 索引文件最多2M内存大小
+	// 多余的会被截断
 	fileMaxSize := roundDown(idx.maxBytes, int64(idx.entrySize))
 	if err := idx.file.Truncate(fileMaxSize); err != nil {
 		idx.Error("Truncate file failed", zap.Error(err))
@@ -76,7 +78,7 @@ func NewIndex(path string, baseMessageSeq uint32) *Index {
 	if err != nil {
 		panic(err)
 	}
-
+	
 	if idx.totalContentSize > fileMaxSize {
 		idx.totalContentSize = fileMaxSize
 		idx.position = fileMaxSize
@@ -92,6 +94,7 @@ func NewIndex(path string, baseMessageSeq uint32) *Index {
 func (idx *Index) resetPosistion() error {
 	var position int64 = 0
 	for {
+		// 当大于文件大小时，当前位置，表示找到了最新可写的位置
 		if position >= idx.totalContentSize {
 			break
 		}
@@ -99,6 +102,7 @@ func (idx *Index) resetPosistion() error {
 		if err := idx.readEntryAtPosition(entry, position); err != nil {
 			return err
 		}
+		// 说明还没有写数据
 		if entry.RelativeOffset == 0 {
 			break
 		}
@@ -118,6 +122,7 @@ func (idx *Index) Append(offset uint32, position uint32) error {
 	}); err != nil {
 		return err
 	}
+	// 索引满了，放弃写入
 	if idx.position >= idx.maxBytes {
 		idx.Warn("Index file is full, give up！")
 		return nil
@@ -290,12 +295,14 @@ func (idx *Index) indexSlotRangeFor(target uint32) (int64, int64) {
 		return lo, lo + 1
 	}
 	var firstHotEntry = int64(math.Max(0, float64(entries-1-idx.warmEntries)))
+	// 往后找
 	if idx.compareIndexEntry(idx.parseEntry(firstHotEntry), target) < 0 {
 		return binarySearch(firstHotEntry, entries-1)
 	}
 	if idx.compareIndexEntry(idx.parseEntry(0), target) > 0 {
 		return -1, 0
 	}
+	// 往前找
 	return binarySearch(0, firstHotEntry)
 
 }

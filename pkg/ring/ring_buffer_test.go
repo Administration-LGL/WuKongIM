@@ -21,6 +21,7 @@ package ring
 
 import (
 	"bytes"
+	"math"
 	"math/rand"
 	"strings"
 	"testing"
@@ -138,9 +139,21 @@ func TestZeroRingBuffer(t *testing.T) {
 	assert.Truef(t, rb.IsEmpty() && rb.r == 0 && rb.w == 0, "expect rb is empty and rb.r=rb.w=0, but got rb.r=%d and rb.w=%d", rb.r, rb.w)
 }
 
+func TestGrow(t *testing.T) {
+	for i := 65; i < math.MaxInt; i++ {
+		re := New(64)
+		re.grow(i)
+		if re.size%64 != 0 {
+			t.Logf("grow: %d --> %d", i, re.size)
+		}
+		assert.EqualValues(t, 0, re.size%64)
+	}
+}
+
 func TestRingBufferGrow(t *testing.T) {
 	rb := New(0)
 	head, tail := rb.Peek(2)
+
 	assert.Empty(t, head, "head should be empty")
 	assert.Empty(t, tail, "tail should be empty")
 	data := make([]byte, DefaultBufferSize+1)

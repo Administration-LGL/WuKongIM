@@ -72,6 +72,7 @@ func (s *segment) appendMessages(msgs []Message) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// 索引写入规则: 累计写入超过了阈值或本次的数据量大于了阈值
 	if s.bytesSinceLastIndexEntry > s.indexIntervalBytes || len(firstData) > int(s.indexIntervalBytes) {
 		err = s.index.Append(msgs[0].GetSeq(), s.position-uint32(n))
 		if err != nil {
@@ -381,6 +382,7 @@ func (s *segment) check(segmentSizeOfByte int64) (int64, error) {
 			s.Error("truncate fail", zap.Error(err))
 			return 0, err
 		}
+		// 更新文件指针的位置，从start偏移position
 		_, err := s.segmentFile.Seek(int64(s.position), io.SeekStart)
 		if err != nil {
 			return 0, err

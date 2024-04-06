@@ -44,7 +44,9 @@ func (pq *inFlightPqueue) Pop() *Message {
 
 func (pq *inFlightPqueue) Remove(i int) *Message {
 	n := len(*pq)
+	// 如果i 不是最后一个
 	if n-1 != i {
+		// 将i换到最后一个
 		pq.Swap(i, n-1)
 		pq.down(i, n-1)
 		pq.up(i)

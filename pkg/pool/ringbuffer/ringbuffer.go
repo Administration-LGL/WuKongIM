@@ -157,6 +157,10 @@ func (ci callSizes) Swap(i, j int) {
 	ci[i], ci[j] = ci[j], ci[i]
 }
 
+// 1~64
+// 65~128
+// 129~256
+// 257~512
 func index(n int) int {
 	n--
 	n >>= minBitSize

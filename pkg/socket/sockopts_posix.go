@@ -33,6 +33,7 @@ import (
 // The default is true (no delay), meaning that data is
 // sent as soon as possible after a Write.
 func SetNoDelay(fd, noDelay int) error {
+	// socket设置no_delay，即不使用nagle算法
 	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, noDelay))
 }
 

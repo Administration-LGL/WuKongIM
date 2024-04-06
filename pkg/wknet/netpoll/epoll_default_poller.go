@@ -32,7 +32,7 @@ func NewPoller(name string) *Poller {
 	poller.name = name
 	poller.fd, err = unix.EpollCreate1(unix.EPOLL_CLOEXEC)
 	if err != nil {
-		panic(err)
+		panic(err)	
 	}
 	poller.efd, err = unix.Eventfd(0, unix.EFD_NONBLOCK|unix.EFD_CLOEXEC)
 	if err != nil {

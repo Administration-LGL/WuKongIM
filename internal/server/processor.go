@@ -268,6 +268,7 @@ func (p *Processor) processMsgs(conn wknet.Conn, sendPackets []*wkproto.SendPack
 	p.response(conn, sendackPackets...)
 }
 
+
 func (p *Processor) prcocessChannelMessages(conn wknet.Conn, channelID string, channelType uint8, sendPackets []*wkproto.SendPacket) ([]wkproto.Frame, error) {
 	var (
 		sendackPackets        = make([]wkproto.Frame, 0, len(sendPackets)) // response sendack packets

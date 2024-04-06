@@ -454,6 +454,7 @@ func (c *Channel) Put(messages []*Message, customSubscribers []string, fromUID s
 
 	//########## store messages in user queue ##########
 	var messageSeqMap map[int64]uint32
+	// 存储到用户个人的队列
 	if len(messages) > 0 {
 		messageSeqMap, err = c.storeMessageToUserQueueIfNeed(messages, subscribers)
 		if err != nil {
@@ -472,6 +473,7 @@ func (c *Channel) Put(messages []*Message, customSubscribers []string, fromUID s
 			}
 		}
 		if lastMsg != nil {
+			// conversation 是维护的最近会话
 			c.updateConversations(lastMsg, subscribers)
 		}
 	}
@@ -490,14 +492,16 @@ func (c *Channel) storeMessageToUserQueueIfNeed(messages []*Message, subscribers
 
 	messageSeqMap := make(map[int64]uint32, len(messages))
 
+	// 这里每个订阅者，投递的消息都是一样的，只是toUID不同
 	for _, subscriber := range subscribers {
 		storeMessages := make([]wkstore.Message, 0, len(messages))
 		for _, m := range messages {
-
+			
 			if m.NoPersist || !m.SyncOnce {
+				// 不持久化或者会同步多次，则不写到个人队列
 				continue
 			}
-
+			// 需要持久化并且会只步一次的消息需要写到个人队列
 			cloneMsg, err := m.DeepCopy()
 			if err != nil {
 				return nil, err
@@ -510,6 +514,7 @@ func (c *Channel) storeMessageToUserQueueIfNeed(messages []*Message, subscribers
 			storeMessages = append(storeMessages, cloneMsg)
 		}
 		if len(storeMessages) > 0 {
+			//
 			_, err := c.s.store.AppendMessagesOfUser(subscriber, storeMessages) // will fill messageSeq after store messages
 			if err != nil {
 				return nil, err

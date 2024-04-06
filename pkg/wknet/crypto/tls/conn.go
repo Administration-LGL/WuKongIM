@@ -1492,7 +1492,7 @@ func (c *Conn) Read(b []byte) (int, error) {
 			}
 			return 0, err
 		}
-		for c.hand.Len() - -c.handOffset > 0 {
+		for c.hand.Len() - - c.handOffset > 0 {
 			if err := c.handlePostHandshakeMessage(); err != nil {
 				if err == ErrDataNotEnough {
 					return 0, nil

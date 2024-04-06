@@ -350,6 +350,7 @@ func (d *DefaultConn) Peek(n int) ([]byte, error) {
 	d.reactorSub.cache.Write(head)
 	d.reactorSub.cache.Write(tail)
 
+	// 如果未发生扩容，则底层是使用同一个数组，后续数据覆盖了前面的数据。
 	data := d.reactorSub.cache.Bytes()
 	resultData := make([]byte, len(data)) // TODO: 这里考虑用sync.Pool
 	copy(resultData, data)                // TODO: 这里需要复制一份，否则多线程下解析数据包会有问题 本人测试 15个连接15个消息 在协程下打印sendPacket的payload会有数据错误问题

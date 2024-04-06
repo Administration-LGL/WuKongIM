@@ -114,16 +114,20 @@ func tcpSocket(proto, addr string, passive bool, sockOpts ...Option) (fd int, ne
 	}
 
 	for _, sockOpt := range sockOpts {
+		// 设置如连接的发送缓冲区、接收缓冲区等
 		if err = sockOpt.SetSockOpt(fd, sockOpt.Opt); err != nil {
 			return
 		}
 	}
 
+	// 判断是否服务端
 	if passive {
+		// 将 fd与sa绑定
 		if err = os.NewSyscallError("bind", syscall.Bind(fd, sa)); err != nil {
 			return
 		}
 		// Set backlog size to the maximum.
+		// 监听&半连接队列大小
 		err = os.NewSyscallError("listen", syscall.Listen(fd, listenerBacklogMaxSize))
 	} else {
 		err = os.NewSyscallError("connect", syscall.Connect(fd, sa))
